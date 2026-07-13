@@ -1,0 +1,19 @@
+# In-enclave TLS (the EigenCompute DOMAIN + Caddyfile pattern).
+# The platform entrypoint provisions the certificate with a key held inside
+# the enclave, so the TLS session itself terminates on attested hardware.
+#
+# Access logs are discarded on purpose: an "anonymous" app that keeps
+# access logs isn't one.
+
+{
+	admin off
+	auto_https disable_redirects
+}
+
+{$DOMAIN} {
+	reverse_proxy localhost:8080
+
+	log {
+		output discard
+	}
+}

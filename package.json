@@ -1,0 +1,21 @@
+{
+  "name": "attestation-badge",
+  "version": "0.1.0",
+  "description": "Embeddable React badge that proves the code serving a request is a specific GitHub commit — via EigenCompute verifiable builds + on-chain releases + runtime attestation",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild app/web/main.jsx --bundle --format=iife --minify --outfile=app/public/badge-demo.js --define:process.env.NODE_ENV='\"production\"' && cp badge/badge.css app/public/badge.css",
+    "dev": "npm run build && node app/server.js",
+    "start": "node app/server.js",
+    "test": "node test/verify.test.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "license": "MIT"
+}

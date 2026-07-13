@@ -1,0 +1,232 @@
+/* AttestationBadge — self-contained styles. Lift badge/ into any app. */
+
+.ab-root {
+  --ab-ink: #16211f;
+  --ab-mut: #5c6b68;
+  --ab-line: #d8e0de;
+  --ab-ok: #0e6b5c;
+  --ab-ok-bg: #e7f2ef;
+  --ab-bad: #a3352b;
+  --ab-bad-bg: #f8ecea;
+  --ab-paper: #ffffff;
+  --ab-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  position: relative;
+  display: inline-block;
+  font-family: var(--ab-mono);
+  font-size: 13px;
+  color: var(--ab-ink);
+  text-align: left;
+}
+
+/* Resting pill — shields.io grammar, but it's a live control, not an image */
+.ab-pill {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  border: 1px solid var(--ab-line);
+  border-radius: 4px;
+  background: var(--ab-paper);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+.ab-pill:focus-visible {
+  outline: 2px solid var(--ab-ok);
+  outline-offset: 2px;
+}
+.ab-pill-key {
+  padding: 5px 9px;
+  background: var(--ab-ink);
+  color: #fff;
+}
+.ab-pill-val {
+  padding: 5px 10px;
+  color: var(--ab-mut);
+}
+.ab-pill.ab-ok .ab-pill-val {
+  background: var(--ab-ok-bg);
+  color: var(--ab-ok);
+}
+.ab-pill.ab-bad .ab-pill-val {
+  background: var(--ab-bad-bg);
+  color: var(--ab-bad);
+}
+
+/* Verification Center */
+.ab-panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(560px, 92vw);
+  background: var(--ab-paper);
+  border: 1px solid var(--ab-line);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(22, 33, 31, 0.14);
+}
+.ab-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ab-line);
+}
+.ab-head-note {
+  color: var(--ab-mut);
+  flex: 1;
+}
+.ab-refresh {
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--ab-ok);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.ab-loading,
+.ab-error {
+  padding: 16px 14px;
+  color: var(--ab-mut);
+}
+.ab-error {
+  color: var(--ab-bad);
+}
+
+/* Chain of custody */
+.ab-chain {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+.ab-step {
+  display: flex;
+  gap: 10px;
+  padding: 9px 14px;
+}
+.ab-step + .ab-step {
+  border-top: 1px dashed var(--ab-line);
+}
+.ab-step-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 11px;
+  margin-top: 1px;
+}
+.ab-verified .ab-step-icon {
+  background: var(--ab-ok);
+  color: #fff;
+}
+.ab-failed .ab-step-icon {
+  background: var(--ab-bad);
+  color: #fff;
+}
+.ab-unavailable .ab-step-icon {
+  background: var(--ab-line);
+  color: var(--ab-mut);
+}
+.ab-step-body {
+  display: grid;
+  gap: 3px;
+}
+.ab-step-title {
+  font-weight: 600;
+}
+.ab-unavailable .ab-step-title {
+  color: var(--ab-mut);
+}
+.ab-step-detail,
+.ab-step-caveat {
+  color: var(--ab-mut);
+  line-height: 1.45;
+}
+.ab-step-caveat {
+  font-size: 12px;
+}
+.ab-step-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ab-step-links a {
+  color: var(--ab-ok);
+}
+.ab-evidence summary {
+  color: var(--ab-mut);
+  cursor: pointer;
+}
+.ab-evidence pre {
+  max-height: 200px;
+  overflow: auto;
+  background: #f3f6f5;
+  border: 1px solid var(--ab-line);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+}
+
+/* Source excerpt — the GitHub-permalink moment */
+.ab-src {
+  margin: 6px 14px 12px;
+  border: 1px solid var(--ab-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ab-src-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #f3f6f5;
+  border-bottom: 1px solid var(--ab-line);
+  color: var(--ab-mut);
+}
+.ab-src-head a {
+  color: var(--ab-ok);
+}
+.ab-src-code {
+  margin: 0;
+  padding: 8px 0;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.ab-src-line {
+  display: flex;
+  padding: 0 10px;
+  background: #fbfdf1;
+  white-space: pre;
+}
+.ab-src-no {
+  width: 34px;
+  flex: none;
+  color: var(--ab-mut);
+  user-select: none;
+}
+
+.ab-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--ab-line);
+  color: var(--ab-mut);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ab-panel {
+    animation: ab-in 140ms ease-out;
+  }
+  @keyframes ab-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
