@@ -89,6 +89,13 @@ the image from the same Dockerfile and compare layers.
 
 ## 4. Runtime — is that code what's answering, right now?
 
+Two paths. **4a is fully verifiable with standard JWT tooling but requires the
+platform's Google-token endpoint, which EigenCompute's launcher currently
+disables** (self-verification mode → `no GCA verifier client present`). 4b works
+today.
+
+### 4a. Attestation token (when the platform enables it)
+
 Challenge the enclave with **your own** nonce (32 bytes hex, yours, fresh):
 
 ```bash
@@ -121,7 +128,14 @@ Check, in order:
 - `hwmodel` `GCP_AMD_SEV_SNP`, `secboot` true
 
 That closes the loop: *chain digest = built-from-commit digest = attested
-running digest*, and the code at that commit is 300 lines you just read.
+running digest*, and the code at that commit is ~350 lines you just read.
+
+### 4b. Raw quote with your nonce (works today)
+
+See step 5 — same challenge flow; the quote is bound to your nonce, so a
+successful response already proves a live enclave answered *your* challenge
+(only in-VM code reaches the teeserver socket). Full signature verification of
+that quote is the offline check below.
 
 ## 5. Deeper: hardware-root check (no Google in the trust base)
 

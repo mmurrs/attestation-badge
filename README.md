@@ -172,8 +172,13 @@ test/                      core tests against real captured fixtures
   allowlisted badge origin) would remove the app from that path entirely. Platform ask.
 - The DSSE signer's public key isn't served with the envelope, so client-side
   signature verification needs an out-of-band key pin. Second platform ask.
-- Runtime: the browser verifies the Confidential Space *token* (Google-rooted).
-  Browser verification of the raw vTPM/SNP quote against hardware roots would need
+- Runtime: the badge's preferred path verifies a Confidential Space *token*
+  (Google-signed OIDC JWT) fully in-browser. **EigenCompute's launcher currently
+  runs in self-verification mode, which disables the `/v1/token` endpoint**
+  (`no GCA verifier client present`) — so on EigenCompute today the badge falls
+  back to the nonce-bound raw quote and says so honestly. Platform ask: re-enable
+  GCA tokens or ship an equivalent platform-signed, CORS-open attestation token.
+- Browser verification of the raw vTPM/SNP quote against hardware roots would need
   a JS/WASM port of go-tpm-tools/go-sev-guest — until then that check is offline-only.
 
 MIT
