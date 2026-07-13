@@ -7,7 +7,7 @@
     "build": "esbuild app/web/main.jsx --bundle --format=iife --minify --outfile=app/public/badge-demo.js --define:process.env.NODE_ENV='\"production\"' && cp badge/badge.css app/public/badge.css",
     "dev": "npm run build && node app/server.js",
     "start": "node app/server.js",
-    "test": "node test/verify.test.js"
+    "test": "node --test test/verify.test.js test/token.test.js"
   },
   "dependencies": {
     "react": "^18.3.1",

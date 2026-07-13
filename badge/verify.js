@@ -399,6 +399,7 @@ export async function verifyChain({
     }
   }
   const rtOk = runtime?.inTee && runtime.verification?.ok;
+  const rtFallback = rtOk && runtime.fallback;
   const rtFailedCheck =
     runtime?.verification && !runtime.verification.ok
       ? runtime.verification.checks.find((c) => !c.ok)
@@ -407,21 +408,24 @@ export async function verifyChain({
     id: 'runtime',
     title: 'Runtime attestation',
     state: rtOk ? 'verified' : rtFailedCheck ? 'failed' : 'unavailable',
-    detail: rtOk
-      ? 'Google-signed attestation token verified in this browser: signature (WebCrypto vs Google JWKS), our fresh nonce, and running image = on-chain digest'
-      : rtFailedCheck
-        ? `Token check "${rtFailedCheck.name}" failed: ${rtFailedCheck.detail}`
-        : runtime && runtime.inTee === false
-          ? 'This instance is not running in a TEE (local/dev mode)'
-          : `Attestation endpoint unavailable${runtime?.error ? ` (${runtime.error})` : ''}`,
+    detail: rtFallback
+      ? 'Enclave answered a fresh nonce-bound challenge on the in-TEE socket (raw quote). Token endpoint unavailable, so the signature was NOT checked in this browser — verify the quote offline or on the dashboard'
+      : rtOk
+        ? 'Google-signed attestation token verified in this browser: signature (WebCrypto vs Google JWKS), our fresh nonce, and running image = on-chain digest'
+        : rtFailedCheck
+          ? `Token check "${rtFailedCheck.name}" failed: ${rtFailedCheck.detail}`
+          : runtime && runtime.inTee === false
+            ? 'This instance is not running in a TEE (local/dev mode)'
+            : `Attestation endpoint unavailable${runtime?.error ? ` (${runtime.error})` : ''}`,
     links: rtOk
       ? [{ label: 'Raw hardware quote (offline go-tpm-tools check)', href: `${appOrigin}/attest/quote` }]
       : [],
     evidence: runtime?.verification
       ? { checks: runtime.verification.checks, claims: pickClaims(runtime.verification.claims) }
       : { runtime },
-    caveat:
-      'The token roots in Google’s attestation service vouching for the TPM quote. For a hardware-root check that trusts no cloud vendor, download the raw quote and verify offline with go-tpm-tools.',
+    caveat: rtFallback
+      ? 'Being able to answer on the teeserver socket at all requires running inside the enclave, but treat this leg as weaker than a browser-verified token.'
+      : 'The token roots in Google’s attestation service vouching for the TPM quote. For a hardware-root check that trusts no cloud vendor, download the raw quote and verify offline with go-tpm-tools.',
   });
 
   const core = steps.filter((s) => s.id !== 'runtime');
