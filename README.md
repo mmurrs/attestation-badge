@@ -95,6 +95,19 @@ doesn't (this repo's Caddyfile discards them — and being in the attested image
 *choice* is itself verifiable); auth-provider callbacks leak activity timing; and
 free-text fields let users identify themselves.
 
+## Live reference deploy
+
+anonbox runs on EigenCompute mainnet with all four legs green (`verified-live`):
+
+- **App:** http://34.91.160.140:8080 — click the badge (or append `?open`)
+- **App ID:** `0x9633512c5AB3EF257e3a1C0F7694eB88a72DCc06`
+  ([EigenCloud dashboard](https://verify.eigencloud.xyz/app/0x9633512c5AB3EF257e3a1C0F7694eB88a72DCc06))
+- Built verifiably from commit
+  [`a07781d`](https://github.com/mmurrs/attestation-badge/tree/a07781da993bd46870bbc12d9b8c37fec68ff9b7);
+  the on-chain release digest, the SLSA provenance, and the source the badge shows
+  all resolve to that commit — and the enclave answers fresh nonce-bound quotes at
+  `POST /attest/quote`.
+
 ## Run it
 
 ```bash
