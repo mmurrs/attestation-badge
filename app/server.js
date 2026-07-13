@@ -32,13 +32,14 @@ const server = http.createServer(async (req, res) => {
       return send(res, await getQuote(await readJson(req)));
     }
     if (route === 'GET /attest/config') {
-      // APP_ADDRESS arrives via publicEnv, so the value the badge configures
-      // itself with is itself recorded on-chain in the app's release.
+      // The *_PUBLIC suffix routes these into the release's publicEnv, so the
+      // values the badge configures itself with are recorded on-chain.
       return send(res, {
         status: 200,
         json: {
-          appAddress: process.env.APP_ADDRESS ?? null,
-          environment: process.env.APP_ENVIRONMENT ?? 'mainnet-alpha',
+          appAddress: process.env.APP_ADDRESS_PUBLIC ?? process.env.APP_ADDRESS ?? null,
+          environment:
+            process.env.APP_ENVIRONMENT_PUBLIC ?? process.env.APP_ENVIRONMENT ?? 'mainnet-alpha',
         },
       });
     }

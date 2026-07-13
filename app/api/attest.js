@@ -73,7 +73,10 @@ export async function getProvenance(digest, envName) {
   if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
     return { status: 400, json: { error: 'digest must be sha256:<64 hex>' } };
   }
-  const userApi = USER_APIS[envName ?? process.env.APP_ENVIRONMENT ?? 'mainnet-alpha'];
+  const userApi =
+    USER_APIS[
+      envName ?? process.env.APP_ENVIRONMENT_PUBLIC ?? process.env.APP_ENVIRONMENT ?? 'mainnet-alpha'
+    ];
   if (!userApi) {
     return { status: 400, json: { error: `unknown environment; one of: ${Object.keys(USER_APIS)}` } };
   }
