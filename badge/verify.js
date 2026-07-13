@@ -195,7 +195,10 @@ export async function fetchProvenance({ digest, buildApiBase, environment }) {
 }
 
 // SOURCE — the highlighted lines, from GitHub's CDN, not from the app.
-export async function fetchSourceLines(link) {
+// Returns the range plus surrounding context and whole-file stats, so the
+// excerpt can render like GitHub's blob view (white context, yellow range,
+// "N lines (N loc) · size" metadata).
+export async function fetchSourceLines(link, context = 4) {
   const res = await fetch(
     `https://raw.githubusercontent.com/${link.owner}/${link.repo}/${link.commit}/${link.path}`
   );
@@ -204,10 +207,20 @@ export async function fetchSourceLines(link) {
       `GitHub raw fetch ${res.status} — repo not public, or ${link.path} doesn't exist at this commit`
     );
   }
-  const lines = (await res.text()).split('\n');
-  const start = link.lineStart ?? 1;
-  const end = Math.min(link.lineEnd ?? lines.length, lines.length);
-  return { lines: lines.slice(start - 1, end), start, end };
+  const text = await res.text();
+  const all = text.split('\n');
+  if (all[all.length - 1] === '') all.pop(); // trailing newline
+  const totalLines = all.length;
+  const loc = all.filter((l) => l.trim() !== '').length;
+  const bytes = new TextEncoder().encode(text).length;
+
+  const ranged = link.lineStart != null;
+  const hlStart = ranged ? link.lineStart : 0;
+  const hlEnd = ranged ? Math.min(link.lineEnd ?? link.lineStart, totalLines) : -1;
+  const start = ranged ? Math.max(1, hlStart - context) : 1;
+  const end = ranged ? Math.min(totalLines, hlEnd + context) : Math.min(totalLines, 40);
+
+  return { lines: all.slice(start - 1, end), start, end, hlStart, hlEnd, totalLines, loc, bytes };
 }
 
 // RUNTIME fallback — raw quote with nonce echo only (no browser-side crypto).

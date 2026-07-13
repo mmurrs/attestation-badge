@@ -195,9 +195,9 @@
   color: var(--ab-bad);
 }
 
-/* Source excerpt — styled to read instantly as GitHub's permalink embed:
-   their chrome, their gutter, their #fff8c5 line-highlight yellow, their
-   light-theme syntax palette. The familiarity IS the message. */
+/* Source excerpt — GitHub's blob view, faithfully: commit chip + breadcrumb,
+   Code|Blame control with line/size metadata, Raw/Copy, white context lines
+   around the #fff8c5 selected range. The familiarity IS the message. */
 .ab-src {
   margin: 6px 14px 12px;
   border: 1px solid #d0d7de;
@@ -205,28 +205,108 @@
   overflow: hidden;
   background: #ffffff;
 }
-.ab-src-head {
+.ab-src-top {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   padding: 8px 12px;
   background: #f6f8fa;
   border-bottom: 1px solid #d0d7de;
-  color: #59636e;
   font-size: 12px;
+  color: #1f2328;
 }
-.ab-src-head a {
-  color: #0969da;
+.ab-src-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2328;
   font-weight: 600;
   text-decoration: none;
 }
-.ab-src-head a:hover {
-  text-decoration: underline;
+.ab-src-ref:hover {
+  background: #f3f4f6;
+}
+.ab-src-ref svg {
+  color: #59636e;
+}
+.ab-src-crumbs {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #59636e;
+}
+.ab-src-sep {
+  padding: 0 4px;
+}
+.ab-src-crumb-file {
+  color: #1f2328;
+  font-weight: 600;
+}
+.ab-src-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: #ffffff;
+  border-bottom: 1px solid #d0d7de;
+  font-size: 12px;
+}
+.ab-src-tabs {
+  display: inline-flex;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ab-src-tab {
+  padding: 3px 10px;
+  color: #59636e;
+  background: #f6f8fa;
+}
+.ab-src-tab-on {
+  background: #ffffff;
+  color: #1f2328;
+  font-weight: 600;
+}
+.ab-src-tab + .ab-src-tab {
+  border-left: 1px solid #d0d7de;
+}
+.ab-src-meta {
+  flex: 1;
+  color: #59636e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ab-src-actions {
+  display: inline-flex;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ab-src-actions a,
+.ab-src-actions button {
+  padding: 3px 10px;
+  font: inherit;
+  color: #1f2328;
+  background: #f6f8fa;
+  border: none;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ab-src-actions a:hover,
+.ab-src-actions button:hover {
+  background: #eef1f4;
+}
+.ab-src-actions button {
+  border-left: 1px solid #d0d7de;
 }
 .ab-src-code {
   margin: 0;
-  padding: 6px 0;
+  padding: 4px 0;
   overflow-x: auto;
   font-size: 12px;
   line-height: 20px;
@@ -234,17 +314,39 @@
 }
 .ab-src-line {
   display: flex;
-  padding: 0 10px 0 0;
-  background: #fff8c5; /* GitHub's selected-lines yellow */
+  background: #ffffff; /* context lines stay white, like the real blob view */
   white-space: pre;
 }
+.ab-src-hl {
+  background: #fff8c5; /* GitHub's selected-lines yellow */
+}
+.ab-src-hl .ab-src-no {
+  background: #fff8c5;
+  border-left: 2px solid #bf8700; /* GitHub's selection accent on the gutter */
+  padding-left: 0;
+}
 .ab-src-no {
-  width: 44px;
+  width: 50px;
   flex: none;
-  padding-right: 12px;
+  padding-right: 14px;
+  padding-left: 2px;
   text-align: right;
   color: #59636e;
+  font-size: 11px;
   user-select: none;
+}
+.ab-src-text {
+  min-width: 0;
+}
+.ab-src-more {
+  color: #59636e;
+}
+.ab-src-more a {
+  color: #0969da;
+  text-decoration: none;
+}
+.ab-src-more a:hover {
+  text-decoration: underline;
 }
 .ab-tok-c {
   color: #59636e; /* comment */

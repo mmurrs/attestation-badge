@@ -173,26 +173,76 @@ function highlight(line) {
   return out;
 }
 
+function formatBytes(n) {
+  return n < 1024 ? `${n} Bytes` : `${(n / 1024).toFixed(1)} KB`;
+}
+
+// Rendered to read as GitHub's blob view: commit chip + path breadcrumb,
+// Code|Blame control, "N lines (N loc) · size" metadata, Raw/Copy, and the
+// selected range in GitHub's yellow with white context lines around it.
 function SourceExcerpt({ link, source }) {
+  const [copied, setCopied] = useState(false);
   if (!link || source.error) return null;
+  const rawUrl = `https://raw.githubusercontent.com/${link.owner}/${link.repo}/${link.commit}/${link.path}`;
+  const crumbs = link.path.split('/');
+  const copy = () => {
+    navigator.clipboard?.writeText(source.lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    });
+  };
   return (
     <div className="ab-src">
-      <div className="ab-src-head">
-        <span>
-          {link.path}
-          {link.lineStart ? ` · L${source.start}–L${source.end}` : ''}
-        </span>
-        <a href={link.url} target="_blank" rel="noreferrer">
-          {link.commit.slice(0, 12)} ↗
+      <div className="ab-src-top">
+        <a className="ab-src-ref" href={link.url} target="_blank" rel="noreferrer" title="Pinned commit">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden fill="currentColor">
+            <path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z" />
+          </svg>
+          {link.commit.slice(0, 7)}
         </a>
+        <span className="ab-src-crumbs">
+          {crumbs.map((c, i) => (
+            <span key={i}>
+              {i > 0 && <span className="ab-src-sep">/</span>}
+              <span className={i === crumbs.length - 1 ? 'ab-src-crumb-file' : ''}>{c}</span>
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className="ab-src-bar">
+        <span className="ab-src-tabs" role="tablist">
+          <span className="ab-src-tab ab-src-tab-on">Code</span>
+          <span className="ab-src-tab">Blame</span>
+        </span>
+        <span className="ab-src-meta">
+          {source.totalLines} lines ({source.loc} loc) · {formatBytes(source.bytes)}
+        </span>
+        <span className="ab-src-actions">
+          <a href={rawUrl} target="_blank" rel="noreferrer">
+            Raw
+          </a>
+          <button type="button" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+        </span>
       </div>
       <pre className="ab-src-code">
-        {source.lines.map((line, i) => (
-          <div key={i} className="ab-src-line">
-            <span className="ab-src-no">{source.start + i}</span>
-            <span>{highlight(line)}</span>
+        {source.lines.map((line, i) => {
+          const n = source.start + i;
+          const hl = n >= source.hlStart && n <= source.hlEnd;
+          return (
+            <div key={n} className={`ab-src-line${hl ? ' ab-src-hl' : ''}`}>
+              <span className="ab-src-no">{n}</span>
+              <span className="ab-src-text">{highlight(line)}</span>
+            </div>
+          );
+        })}
+        {source.end < source.totalLines && (
+          <div className="ab-src-line ab-src-more">
+            <span className="ab-src-no">…</span>
+            <a href={link.url} target="_blank" rel="noreferrer">
+              view all {source.totalLines} lines on GitHub
+            </a>
           </div>
-        ))}
+        )}
       </pre>
     </div>
   );
