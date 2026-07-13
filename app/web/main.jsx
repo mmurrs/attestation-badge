@@ -154,7 +154,7 @@ function App() {
         </ol>
         <p className="how-honest">
           What it can't do: make one highlighted line mean the whole app is safe. That's why
-          this app keeps its attested surface under 300 lines — small enough that "read the
+          this app keeps its attested surface in ~350 lines — small enough that "read the
           code yourself" is a real invitation, not a shrug.
         </p>
       </section>

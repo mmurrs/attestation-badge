@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { submitSuggestion, listSuggestions } from './api/inbox.js';
-import { getQuote, getProvenance } from './api/attest.js';
+import { getQuote, getToken, getProvenance } from './api/attest.js';
 import { createStore } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +30,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (route === 'POST /attest/quote') {
       return send(res, await getQuote(await readJson(req)));
+    }
+    if (route === 'POST /attest/token') {
+      return send(res, await getToken(await readJson(req)));
     }
     if (route === 'GET /attest/config') {
       // The *_PUBLIC suffix routes these into the release's publicEnv, so the

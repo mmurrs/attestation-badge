@@ -1,19 +1,24 @@
 // The app's opt-in attestation surface — the piece that upgrades the badge
 // from "verified build" to "verified live".
 //
-// Two routes:
-//   POST /attest/quote       — fresh TEE quote bound to the caller's nonce.
-//                              Proxies the in-VM teeserver socket
-//                              (/run/container_launcher/teeserver.sock, the
-//                              same primitive the ecloud SDK's AttestClient
-//                              uses). Only code inside the enclave can reach
-//                              that socket, so being able to answer at all is
-//                              the point.
+// Three routes:
+//   POST /attest/token       — Google-signed attestation token (OIDC JWT) with
+//                              the caller's nonce embedded. The launcher's
+//                              /v1/token has Google's attestation service check
+//                              the TPM quote and mint an RS256 JWT the BROWSER
+//                              can verify with WebCrypto against Google's JWKS.
+//                              This is the browser-verifiable proof.
+//   POST /attest/quote       — raw hardware quote bound to the caller's nonce
+//                              (/v1/bound_evidence). Not browser-verifiable;
+//                              kept downloadable for offline go-tpm-tools
+//                              verification against hardware roots.
 //   GET  /attest/provenance/:digest — same-origin proxy of the public
 //                              EigenCompute build API. Needed because userapi
 //                              CORS only allows the official dashboards; the
 //                              response is client-verifiable DSSE either way,
 //                              so proxying does not add trust in this app.
+// Only code inside the enclave can reach the teeserver socket, so being able
+// to answer the first two at all is the point.
 
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -28,6 +33,34 @@ const USER_APIS = {
   sepolia: 'https://userapi-compute-sepolia-prod.eigencloud.xyz',
   'mainnet-alpha': 'https://userapi-compute.eigencloud.xyz',
 };
+
+export async function getToken(body) {
+  const nonce = String(body.nonce ?? '');
+  const audience = String(body.audience ?? '');
+  // Launcher constraint: custom nonces are 10–74 bytes, up to 6 of them.
+  if (!/^[0-9a-f]{64}$/.test(nonce)) {
+    return { status: 400, json: { error: 'nonce must be 32 bytes hex' } };
+  }
+  if (!/^https:\/\/[\w./-]{1,100}$/.test(audience)) {
+    return { status: 400, json: { error: 'audience must be a short https URL' } };
+  }
+  try {
+    const token = await teeRequest('/v1/token', {
+      audience,
+      token_type: 'OIDC',
+      nonces: [nonce],
+    });
+    return {
+      status: 200,
+      json: { inTee: true, token: token.toString(), fetchedAt: new Date().toISOString() },
+    };
+  } catch (err) {
+    return {
+      status: 200,
+      json: { inTee: false, error: err.message, fetchedAt: new Date().toISOString() },
+    };
+  }
+}
 
 export async function getQuote(body) {
   const nonce = String(body.nonce ?? '');

@@ -120,6 +120,15 @@ function Step({ step }) {
       <div className="ab-step-body">
         <span className="ab-step-title">{step.title}</span>
         <span className="ab-step-detail">{step.detail}</span>
+        {step.evidence?.checks && (
+          <ul className="ab-checks">
+            {step.evidence.checks.map((c) => (
+              <li key={c.name} className={c.ok ? '' : 'ab-check-bad'}>
+                {c.name}: {c.detail}
+              </li>
+            ))}
+          </ul>
+        )}
         {step.caveat && step.state === 'verified' && (
           <span className="ab-step-caveat">{step.caveat}</span>
         )}
@@ -141,6 +150,29 @@ function Step({ step }) {
   );
 }
 
+// Minimal JS tokenizer for the excerpt — GitHub light-theme classes, no deps.
+const TOKEN_RE =
+  /(\/\/.*$)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)|\b(const|let|var|function|return|if|else|for|of|in|new|import|export|from|async|await|throw|try|catch|class|extends|null|undefined|true|false)\b|\b(\d+(?:\.\d+)?)\b|([A-Za-z_$][\w$]*)(?=\()/gm;
+
+function highlight(line) {
+  const out = [];
+  let last = 0;
+  let m;
+  TOKEN_RE.lastIndex = 0;
+  while ((m = TOKEN_RE.exec(line))) {
+    if (m.index > last) out.push(line.slice(last, m.index));
+    const cls = m[1] ? 'ab-tok-c' : m[2] ? 'ab-tok-s' : m[3] ? 'ab-tok-k' : m[4] ? 'ab-tok-n' : 'ab-tok-f';
+    out.push(
+      <span key={m.index} className={cls}>
+        {m[0]}
+      </span>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push(line.slice(last));
+  return out;
+}
+
 function SourceExcerpt({ link, source }) {
   if (!link || source.error) return null;
   return (
@@ -158,7 +190,7 @@ function SourceExcerpt({ link, source }) {
         {source.lines.map((line, i) => (
           <div key={i} className="ab-src-line">
             <span className="ab-src-no">{source.start + i}</span>
-            <span>{line}</span>
+            <span>{highlight(line)}</span>
           </div>
         ))}
       </pre>

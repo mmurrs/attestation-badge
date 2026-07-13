@@ -65,10 +65,15 @@ drifts from it):
 3. **Running source** — the highlighted lines are fetched from
    `raw.githubusercontent.com` at that commit. What you read is what was built.
 4. **Runtime attestation** — the page generates a 32-byte nonce; the app's
-   `/attest/quote` route (see [`app/api/attest.js`](app/api/attest.js)) binds it into
-   a challenge on the in-enclave attestation socket and returns the hardware quote.
-   Only code running inside the attested VM can reach that socket, and the nonce
-   rules out replay.
+   `/attest/token` route (see [`app/api/attest.js`](app/api/attest.js)) has Google's
+   attestation service check this VM's TPM quote and mint an OIDC JWT with that
+   nonce embedded. The browser then verifies the JWT itself — RS256 via WebCrypto
+   against Google's JWKS, nonce freshness, and `image_digest` == the on-chain
+   digest from step 1. Only code inside the attested VM can reach the socket that
+   mints these.
+
+Every step is also reproducible from your own terminal with zero trust in the app
+or the badge — the full recipe is in **[VERIFY.md](VERIFY.md)**.
 
 ## What it deliberately does NOT claim
 
@@ -76,7 +81,7 @@ Honesty is the product. The badge never claims:
 
 - **"This line is the whole story."** Attestation proves the *build*, not that the
   highlighted line is load-bearing. A different code path could still betray you —
-  which is why anonbox keeps its attested surface under ~300 lines. The badge is an
+  which is why anonbox keeps its attested surface in ~350 lines. The badge is an
   *audit entry point*; smallness is what makes the audit real.
 - **"The badge itself is the root of trust."** This panel is served by the app it
   verifies; a malicious operator could serve a lying badge. That's why every step
@@ -84,10 +89,14 @@ Honesty is the product. The badge never claims:
   [EigenCloud dashboard](https://verify.eigencloud.xyz)) — and why the panel's
   footer says exactly this. Cross-check there; the badge is the convenience, the
   chain + dashboard are the authority.
-- **"Your browser checked the hardware signature."** Quote signature verification
-  (against the confidential-computing roots) isn't browser-feasible today; the raw
-  quote is downloadable for offline verification with `go-tpm-tools`, and the
-  platform verifies it at ingest. The badge says so instead of pretending.
+- **"Your browser checked the hardware roots."** The browser *does* real crypto on
+  the runtime leg — it verifies a Google-signed attestation token (RS256 via
+  WebCrypto against Google's CORS-open JWKS), checks its own fresh nonce inside
+  `eat_nonce`, and requires the token's `image_digest` to equal the on-chain
+  release digest. But that roots in Google's attestation service vouching for the
+  TPM quote, not in AMD silicon directly. For a check that removes Google from the
+  trust base, the raw quote stays downloadable for offline `go-tpm-tools`
+  verification. The badge states this trust base instead of pretending.
 
 Real-world caveats a deploying app must own (learned studying a production app with
 the same anonymity claim): access logs can deanonymize even when the database
@@ -146,7 +155,7 @@ badge/                     the embeddable part (lift this directory)
   verify.js                framework-free chain walker — usable without React
   abi.js                   AppController addresses + AppUpgraded ABI (v1.4/v1.5)
   badge.css                self-contained styles
-app/                       anonbox — the attested surface (~300 LOC, stdlib only)
+app/                       anonbox — the attested surface (~350 LOC, stdlib only)
   api/inbox.js             THE money shot: identity in scope, never stored
   api/attest.js            opt-in: nonce'd TEE quote + provenance proxy
   server.js                every route visible in one switch; no request logging
@@ -163,7 +172,8 @@ test/                      core tests against real captured fixtures
   allowlisted badge origin) would remove the app from that path entirely. Platform ask.
 - The DSSE signer's public key isn't served with the envelope, so client-side
   signature verification needs an out-of-band key pin. Second platform ask.
-- Runtime quotes: browser verification of vTPM/SNP signatures would need a JS/WASM
-  port of the verifier stack. Until then: download + `go-tpm-tools`, or the dashboard.
+- Runtime: the browser verifies the Confidential Space *token* (Google-rooted).
+  Browser verification of the raw vTPM/SNP quote against hardware roots would need
+  a JS/WASM port of go-tpm-tools/go-sev-guest — until then that check is offline-only.
 
 MIT

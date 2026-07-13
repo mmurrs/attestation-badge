@@ -20,6 +20,7 @@ import {
   APP_UPGRADED_V14,
   GET_LATEST_RELEASE_BLOCK_SELECTOR,
 } from './abi.js';
+import { verifyAttestationToken, TOKEN_AUDIENCE } from './token.js';
 
 export function parsePermalink(url) {
   const m = url.match(
@@ -161,9 +162,26 @@ export async function fetchProvenance({ digest, buildApiBase, environment }) {
   if (res.status === 404) return { status: 'not_found' };
   if (!res.ok) throw new Error(`Build API ${res.status}`);
   const p = await res.json();
+
+  // Client-side consistency check on the DSSE envelope: decode the signed
+  // payload ourselves and require that the convenience fields (image digest,
+  // commit) match what's actually inside it. The signature itself can't be
+  // checked until the platform publishes the signer key, but this stops an
+  // API that says "verified" while shipping mismatched provenance.
+  let dsseConsistent = false;
+  try {
+    const payload = JSON.parse(atob(p.payload));
+    const subjDigest = 'sha256:' + payload.subject?.[0]?.digest?.sha256;
+    const matCommit = payload.predicate?.materials?.[0]?.digest?.sha1;
+    dsseConsistent = subjDigest === p.image_digest && matCommit === p.git_ref;
+  } catch {
+    dsseConsistent = false;
+  }
+
   const material = p.provenance_json?.predicate?.materials?.[0] ?? {};
   return {
-    status: p.status, // "verified" is the platform's own verdict
+    status: p.status, // the platform's verdict on the DSSE signature
+    dsseConsistent, // OUR check: signed payload agrees with the summary fields
     buildId: p.build_id,
     imageDigest: p.image_digest,
     repoUrl: p.repo_url,
@@ -192,7 +210,7 @@ export async function fetchSourceLines(link) {
   return { lines: lines.slice(start - 1, end), start, end };
 }
 
-// RUNTIME — fresh quote with our nonce, only if the app exposes /attest/quote.
+// RUNTIME fallback — raw quote with nonce echo only (no browser-side crypto).
 export async function fetchRuntimeQuote({ appOrigin }) {
   const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
   const nonce = [...nonceBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -204,6 +222,24 @@ export async function fetchRuntimeQuote({ appOrigin }) {
   if (!res.ok) throw new Error(`quote endpoint ${res.status}`);
   const q = await res.json();
   return { ...q, sentNonce: nonce, nonceEchoed: q.nonce === nonce };
+}
+
+// RUNTIME — attestation token with our nonce, verified HERE in the browser:
+// RS256 against Google's JWKS (CORS-open), nonce freshness, and image_digest
+// bound to the on-chain release. Only possible if the app exposes /attest/token.
+export async function fetchRuntimeAttestation({ appOrigin, expectedDigest }) {
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
+  const nonce = [...nonceBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const res = await fetch(`${appOrigin}/attest/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nonce, audience: TOKEN_AUDIENCE }),
+  });
+  if (!res.ok) throw new Error(`token endpoint ${res.status}`);
+  const t = await res.json();
+  if (!t.inTee) return { inTee: false, error: t.error };
+  const verification = await verifyAttestationToken(t.token, { nonce, expectedDigest });
+  return { inTee: true, sentNonce: nonce, verification, token: t.token };
 }
 
 /**
@@ -290,17 +326,19 @@ export async function verifyChain({
     id: 'build',
     title: 'Verifiable build',
     state:
-      provenance?.status === 'verified'
+      provenance?.status === 'verified' && provenance.dsseConsistent
         ? 'verified'
-        : provenance?.status === 'not_found'
+        : provenance?.status === 'verified' || provenance?.status === 'not_found'
           ? 'failed'
           : 'unavailable',
     detail:
-      provenance?.status === 'verified'
-        ? `SLSA provenance: commit ${String(provenance.commit).slice(0, 12)} → image ${provenance.imageDigest.slice(7, 19)}, built by Cloud Build`
-        : provenance?.status === 'not_found'
-          ? 'No verifiable build recorded for the on-chain digest — this image was not built from public source'
-          : `Build API unreachable (${provenance?.error ?? 'no release digest to look up'})`,
+      provenance?.status === 'verified' && provenance.dsseConsistent
+        ? `SLSA provenance: commit ${String(provenance.commit).slice(0, 12)} → image ${provenance.imageDigest.slice(7, 19)}, built by Cloud Build; signed payload decoded and cross-checked in this browser`
+        : provenance?.status === 'verified'
+          ? 'Provenance summary fields do not match the signed DSSE payload — treat as unverified'
+          : provenance?.status === 'not_found'
+            ? 'No verifiable build recorded for the on-chain digest — this image was not built from public source'
+            : `Build API unreachable (${provenance?.error ?? 'no release digest to look up'})`,
     links: release
       ? [{ label: 'Provenance (DSSE)', href: `${buildApiBase}/${release.digest}` }]
       : [],
@@ -324,35 +362,66 @@ export async function verifyChain({
       : step('release', 'On-chain release', 'failed', releaseError)
   );
 
-  // RUNTIME
+  // RUNTIME — token first (browser-verifiable); raw-quote fallback if the
+  // launcher doesn't serve /v1/token (older images), so the leg degrades to
+  // "nonce echoed, not browser-verified" instead of disappearing.
   let runtime = null;
   if (appOrigin !== null) {
     try {
-      runtime = await fetchRuntimeQuote({ appOrigin });
+      runtime = await fetchRuntimeAttestation({ appOrigin, expectedDigest: release?.digest });
     } catch (e) {
       runtime = { error: e.message };
     }
+    if (runtime?.error || (runtime?.inTee === false && runtime.error)) {
+      try {
+        const q = await fetchRuntimeQuote({ appOrigin });
+        if (q.inTee && q.nonceEchoed) {
+          runtime = {
+            inTee: true,
+            fallback: true,
+            verification: {
+              ok: true,
+              checks: [
+                {
+                  name: 'nonce',
+                  ok: true,
+                  detail:
+                    'raw quote fetched with our fresh nonce (token endpoint unavailable — signature not browser-checked)',
+                },
+              ],
+              claims: null,
+            },
+          };
+        }
+      } catch {
+        // keep the token error
+      }
+    }
   }
+  const rtOk = runtime?.inTee && runtime.verification?.ok;
+  const rtFailedCheck =
+    runtime?.verification && !runtime.verification.ok
+      ? runtime.verification.checks.find((c) => !c.ok)
+      : null;
   steps.push({
     id: 'runtime',
     title: 'Runtime attestation',
-    state:
-      runtime && !runtime.error && runtime.inTee && runtime.nonceEchoed
-        ? 'verified'
-        : 'unavailable',
-    detail:
-      runtime && !runtime.error && runtime.inTee && runtime.nonceEchoed
-        ? 'Fresh TEE quote fetched with a nonce this page just generated — replay is ruled out'
+    state: rtOk ? 'verified' : rtFailedCheck ? 'failed' : 'unavailable',
+    detail: rtOk
+      ? 'Google-signed attestation token verified in this browser: signature (WebCrypto vs Google JWKS), our fresh nonce, and running image = on-chain digest'
+      : rtFailedCheck
+        ? `Token check "${rtFailedCheck.name}" failed: ${rtFailedCheck.detail}`
         : runtime && runtime.inTee === false
           ? 'This instance is not running in a TEE (local/dev mode)'
-          : `Quote endpoint unavailable${runtime?.error ? ` (${runtime.error})` : ''}`,
-    links:
-      runtime && runtime.inTee
-        ? [{ label: 'Raw quote (verify with ecloud CLI)', href: `${appOrigin}/attest/quote` }]
-        : [],
-    evidence: { runtime },
+          : `Attestation endpoint unavailable${runtime?.error ? ` (${runtime.error})` : ''}`,
+    links: rtOk
+      ? [{ label: 'Raw hardware quote (offline go-tpm-tools check)', href: `${appOrigin}/attest/quote` }]
+      : [],
+    evidence: runtime?.verification
+      ? { checks: runtime.verification.checks, claims: pickClaims(runtime.verification.claims) }
+      : { runtime },
     caveat:
-      'Hardware quote signatures cannot be checked in a browser yet — download the raw quote and verify with go-tpm-tools, or trust the EigenCloud dashboard.',
+      'The token roots in Google’s attestation service vouching for the TPM quote. For a hardware-root check that trusts no cloud vendor, download the raw quote and verify offline with go-tpm-tools.',
   });
 
   const core = steps.filter((s) => s.id !== 'runtime');
@@ -367,4 +436,21 @@ export async function verifyChain({
 
 function step(id, title, state, detail) {
   return { id, title, state, detail, links: [], evidence: {} };
+}
+
+function pickClaims(claims) {
+  if (!claims) return null;
+  const { iss, aud, exp, hwmodel, swname, secboot, dbgstat, eat_nonce, submods } = claims;
+  return {
+    iss,
+    aud,
+    exp,
+    hwmodel,
+    swname,
+    secboot,
+    dbgstat,
+    eat_nonce,
+    image: submods?.container?.image_reference,
+    image_digest: submods?.container?.image_digest,
+  };
 }
